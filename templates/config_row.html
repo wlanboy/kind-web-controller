@@ -1,0 +1,5 @@
+<div id="config-{{ config.name }}">
+  {{ config.name }} ({{ config.hostname }})
+  <button hx-post="/run-cluster" hx-vals='{"name":"{{ config.name }}"}' hx-target="#clusters" hx-swap="beforeend">Run</button>
+  <button hx-post="/delete-config" hx-vals='{"name":"{{ config.name }}"}' hx-target="#config-{{ config.name }}" hx-swap="delete">Delete</button>
+</div>
