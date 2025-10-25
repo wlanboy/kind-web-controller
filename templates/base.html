@@ -37,6 +37,33 @@
         currentStream.close();
       };
     }
+
+  function startStreamMetallb(name) {
+    if (window.currentStream) {
+      window.currentStream.close();
+    }
+
+    const output = document.querySelector('#live-output code');
+    output.textContent = "";
+
+    const url = `/streammetallb?name=${name}`;
+    window.currentStream = new EventSource(url);
+    console.log("[DEBUG] MetalLB stream opened:", url);
+
+    window.currentStream.onmessage = (event) => {
+      if (event.data === "[STREAM CLOSED]") {
+        console.log("[DEBUG] Stream finished cleanly.");
+        currentStream.close();
+        return;
+      }
+      output.textContent += event.data + "\n";
+    };
+
+    window.currentStream.onerror = (err) => {
+      console.warn("[SSE ERROR]", err);
+      window.currentStream.close();
+    };
+  }
   </script>
 </head>
 <body>
