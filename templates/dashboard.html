@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+  <div class="column">
+    <h2>Konfigurationen</h2>
+    <form hx-post="/create-config" hx-target="#configs" hx-swap="beforeend">
+      <input name="name" placeholder="Name" required>
+      <input name="hostname" placeholder="Hostname" required>
+      <button type="submit">Create</button>
+    </form>
+    <div id="configs">
+      {% for config in configs %}
+        {% include "config_row.html" %}
+      {% endfor %}
+    </div>
+  </div>
+  <div class="column">
+    <h2>Aktive Cluster</h2>
+    <div id="clusters">
+      {% for cluster in clusters %}
+        {% include "cluster_row.html" %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
