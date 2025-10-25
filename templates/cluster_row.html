@@ -1,0 +1,4 @@
+<div id="cluster-{{ cluster }}">
+  {{ cluster }}
+  <button hx-post="/delete-cluster" hx-vals='{"name":"{{ cluster }}"}' hx-target="#cluster-{{ cluster }}" hx-swap="delete">Delete</button>
+</div>
