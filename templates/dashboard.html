@@ -6,21 +6,33 @@
     <form hx-post="/create-config" hx-target="#configs" hx-swap="beforeend">
       <input name="name" placeholder="Name" required>
       <input name="hostname" placeholder="Hostname" required>
-      <button type="submit">Create</button>
+      <button type="submit" class="btn green">Create</button>
     </form>
-    <div id="configs">
-      {% for config in configs %}
-        {% include "config_row.html" %}
-      {% endfor %}
-    </div>
+    <table>
+      <thead><tr><th>Name</th><th>Hostname</th><th>Aktionen</th></tr></thead>
+      <tbody id="configs">
+        {% for config in configs %}
+          {% include "config_row.html" %}
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
+
   <div class="column">
-    <h2>Aktive Cluster</h2>
-    <div id="clusters">
-      {% for cluster in clusters %}
-        {% include "cluster_row.html" %}
-      {% endfor %}
-    </div>
+    <h2>Aktive Cluster
+      <button class="btn refresh"
+        hx-get="/clusters"
+        hx-target="#clusters"
+        hx-swap="outerHTML">🔄</button>
+    </h2>
+    <table>
+      <thead><tr><th>Name</th><th>Aktionen</th></tr></thead>
+      {% include "cluster_table.html" %}
+    </table>
   </div>
 </div>
+
+<h2>Live Output</h2>
+<pre id="live-output"><code></code></pre>
+
 {% endblock %}

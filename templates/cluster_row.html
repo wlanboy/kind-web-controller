@@ -1,4 +1,14 @@
-<div id="cluster-{{ cluster }}">
-  {{ cluster }}
-  <button hx-post="/delete-cluster" hx-vals='{"name":"{{ cluster }}"}' hx-target="#cluster-{{ cluster }}" hx-swap="delete">Delete</button>
-</div>
+<tr id="cluster-{{ cluster }}">
+  <td>{{ cluster }}</td>
+  <td>
+<button class="btn red"
+  hx-post="/delete-cluster"
+  hx-vals='{"name":"{{ cluster }}"}'
+  hx-target="#cluster-{{ cluster }}"
+  hx-swap="delete"
+  onclick="startStream('delete', '{{ cluster }}')">
+  Delete
+</button>
+
+  </td>
+</tr>
