@@ -37,3 +37,10 @@ def download_kind(version, os_name, arch):
         f.write(requests.get(url).content)
     os.chmod(path, 0o755)
     return path
+
+def render_metallb_yaml(name: str, network: str):
+    env = Environment(loader=FileSystemLoader("templates"))
+    template = env.get_template("metallb.yaml.j2")
+    rendered = template.render(network=network)
+    with open(f"metallb-{name}.yaml", "w") as f:
+        f.write(rendered)
