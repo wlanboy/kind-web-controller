@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, create_engine
+from sqlalchemy import Column, String, Boolean, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -10,6 +10,8 @@ class ClusterConfig(Base):
     __tablename__ = "cluster_configs"
     name = Column(String, primary_key=True)
     hostname = Column(String)
+    network = Column(String)  
+    metallbinstalled = Column(Boolean, default=False) 
 
 def init_db():
     Base.metadata.create_all(bind=engine)
