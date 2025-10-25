@@ -10,3 +10,4 @@ wheels/
 .venv
 clusters.db
 *.conf
+metallb-*.yaml
