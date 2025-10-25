@@ -1,0 +1,17 @@
+body {
+  font-family: sans-serif;
+  margin: 20px;
+}
+.container {
+  display: flex;
+  gap: 40px;
+}
+.column {
+  width: 45%;
+}
+input {
+  margin-right: 10px;
+}
+button {
+  margin-left: 5px;
+}
