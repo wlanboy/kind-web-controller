@@ -1,0 +1,1 @@
+METALLB_VERSION = "0.15.2"
