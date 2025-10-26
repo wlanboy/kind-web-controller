@@ -1,4 +1,4 @@
-import subprocess, os, platform, requests
+import subprocess, os, platform, requests, re
 from jinja2 import Environment, FileSystemLoader
 from models import SessionLocal, ClusterConfig
 from config import KIND_BIN
