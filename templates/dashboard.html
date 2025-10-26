@@ -1,38 +1,26 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container">
-  <div class="column">
-    <h2>Konfigurationen</h2>
-    <form hx-post="/create-config" hx-target="#configs" hx-swap="beforeend">
-      <input name="name" placeholder="Name" required>
-      <input name="hostname" placeholder="Hostname" required>
-      <button type="submit" class="btn green">Create</button>
-    </form>
-    <table>
-      <thead><tr><th>Name</th><th>Hostname</th><th>Aktionen</th></tr></thead>
-      <tbody id="configs">
-        {% for config in configs %}
-          {% include "config_row.html" %}
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+<h1>Cluster Dashboard</h1>
 
-  <div class="column">
-    <h2>Aktive Cluster
-      <button class="btn refresh"
-        hx-get="/clusters"
-        hx-target="#clusters"
-        hx-swap="outerHTML">🔄</button>
-    </h2>
-    <table>
-      <thead><tr><th>Name</th><th>Aktionen</th></tr></thead>
-      {% include "cluster_table.html" %}
-    </table>
-  </div>
+<form hx-post="/create-config" hx-target="#configs" hx-swap="innerHTML">
+  <input name="name" placeholder="Name" required>
+  <input name="hostname" placeholder="Hostname" required>
+  <input name="network" placeholder="MetalLB IP Range (optional)">
+  <button type="submit" class="btn green">Create</button>
+</form>
+
+<h2>Configured Clusters</h2>
+<div id="configs">
+  {% include "config_table.html" %}
+</div>
+
+<div id="config-feedback"></div>
+
+<h2>Active Clusters</h2>
+<div id="active-clusters">
+  {% include "cluster_table.html" %}
 </div>
 
 <h2>Live Output</h2>
 <pre id="live-output"><code></code></pre>
-
 {% endblock %}
