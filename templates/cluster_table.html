@@ -1,5 +1,10 @@
-<tbody id="clusters">
-  {% for cluster in clusters %}
-    {% include "cluster_row.html" %}
-  {% endfor %}
-</tbody>
+<table>
+  <thead>
+    <tr><th>Name</th><th>Hostname</th><th>Actions</th></tr>
+  </thead>
+  <tbody>
+    {% for config in active %}
+      {% include "cluster_row.html" %}
+    {% endfor %}
+  </tbody>
+</table>
