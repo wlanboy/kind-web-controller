@@ -35,44 +35,8 @@ def detect_system():
     elif arch == "aarch64": arch = "arm64"
     return os_name, arch
 
-def fetch_kind_versions():
-    url = "https://api.github.com/repos/kubernetes-sigs/kind/releases"
-    return [r["tag_name"] for r in requests.get(url).json()[:1]]
-
-def download_kind(version, os_name, arch):
-    url = f"https://github.com/kubernetes-sigs/kind/releases/download/{version}/kind-{os_name}-{arch}"
-    path = f"./bin/kind-{version}"
-    os.makedirs("bin", exist_ok=True)
-    with open(path, "wb") as f:
-        f.write(requests.get(url).content)
-    os.chmod(path, 0o755)
-    return path
-
 def is_kind_installed() -> bool:
     return os.path.isfile(KIND_BIN) and os.access(KIND_BIN, os.X_OK)
-
-def get_installed_kind_version() -> str:
-    try:
-        result = subprocess.run([KIND_BIN, "version"], capture_output=True, text=True, timeout=5)
-        if result.returncode == 0:
-            match = re.search(r"kind v([\d\.]+)", result.stdout)
-            return match.group(1) if match else "unknown"
-        return "not installed"
-    except Exception:
-        return "error"
-    
-def fetch_kind_versions() -> list[str]:
-    try:
-        response = requests.get("https://api.github.com/repos/kubernetes-sigs/kind/releases")
-        if response.status_code == 200:
-            return [
-                r["tag_name"].lstrip("v")
-                for r in response.json()
-                if not r.get("prerelease", False)
-            ]
-    except Exception:
-        pass
-    return []
 
 def render_metallb_yaml(name: str, network: str):
     env = Environment(loader=FileSystemLoader("templates"))
