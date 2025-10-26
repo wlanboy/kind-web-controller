@@ -11,9 +11,7 @@
       <td>
         {% if config.name not in active_names %}
           <button class="btn green"
-            hx-post="/create-cluster"
             hx-vals='{"name":"{{ config.name }}"}'
-            hx-target="#cluster-{{ config.name }}"
             hx-swap="none"
             onclick="startStream('create', '{{ config.name }}')">
             Create
