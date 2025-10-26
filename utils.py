@@ -1,16 +1,25 @@
 import subprocess, os, platform, requests
 from jinja2 import Environment, FileSystemLoader
 from models import SessionLocal, ClusterConfig
+from config import KIND_BIN
 
 def get_active_clusters():
-    result = subprocess.run(["kind", "get", "clusters"], capture_output=True, text=True)
-    return result.stdout.strip().splitlines()
+    if not os.path.isfile(KIND_BIN) or not os.access(KIND_BIN, os.X_OK):
+        return []  # Kind nicht installiert → keine Cluster
+    try:
+        result = subprocess.run([KIND_BIN, "get", "clusters"], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    except Exception:
+        pass
+
+    return []
 
 def create_cluster(name):
-    subprocess.run(["kind", "create", "cluster", "--name", name, "--config", f"./{name}.conf"])
+    subprocess.run([KIND_BIN, "create", "cluster", "--name", name, "--config", f"./{name}.conf"])
 
 def delete_cluster(name):
-    subprocess.run(["kind", "delete", "clusters", name])
+    subprocess.run([KIND_BIN, "delete", "clusters", name])
 
 def render_config(name, hostname):
     env = Environment(loader=FileSystemLoader("templates"))
@@ -39,6 +48,32 @@ def download_kind(version, os_name, arch):
     os.chmod(path, 0o755)
     return path
 
+def is_kind_installed() -> bool:
+    return os.path.isfile(KIND_BIN) and os.access(KIND_BIN, os.X_OK)
+
+def get_installed_kind_version() -> str:
+    try:
+        result = subprocess.run([KIND_BIN, "version"], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            match = re.search(r"kind v([\d\.]+)", result.stdout)
+            return match.group(1) if match else "unknown"
+        return "not installed"
+    except Exception:
+        return "error"
+    
+def fetch_kind_versions() -> list[str]:
+    try:
+        response = requests.get("https://api.github.com/repos/kubernetes-sigs/kind/releases")
+        if response.status_code == 200:
+            return [
+                r["tag_name"].lstrip("v")
+                for r in response.json()
+                if not r.get("prerelease", False)
+            ]
+    except Exception:
+        pass
+    return []
+
 def render_metallb_yaml(name: str, network: str):
     env = Environment(loader=FileSystemLoader("templates"))
     template = env.get_template("metallb.yaml.j2")
@@ -46,14 +81,8 @@ def render_metallb_yaml(name: str, network: str):
     with open(f"metallb-{name}.yaml", "w") as f:
         f.write(rendered)
 
-def get_active_kind_clusters() -> list[str]:
-    result = subprocess.run(["kind", "get", "clusters"], capture_output=True, text=True)
-    if result.returncode != 0:
-        return []
-    return result.stdout.strip().splitlines()
-
 def get_enriched_clusters() -> list[ClusterConfig]:
-    active = get_active_kind_clusters()
+    active = get_active_clusters()
     db = SessionLocal()
     configs = db.query(ClusterConfig).filter(ClusterConfig.name.in_(active)).all()
     config_map = {c.name: c for c in configs}
