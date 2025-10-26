@@ -1,28 +1,57 @@
 <!DOCTYPE html>
 <html data-theme="dark">
 <head>
-  <title>Kind Cluster Manager</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <title>Cluster Manager</title>
   <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  {% block content %}{% endblock %}
+
   <script>
     function toggleTheme() {
       const html = document.documentElement;
       html.dataset.theme = html.dataset.theme === "dark" ? "light" : "dark";
     }
+
     let currentStream = null;
 
     function startStream(task, name) {
-      if (currentStream) {
+      if (currentStream) currentStream.close();
+        const output = document.querySelector('#live-output code');
+        output.textContent = "";
+        const url = `/stream?task=${task}&name=${name}`;
+        currentStream = new EventSource(url);
+        currentStream.onmessage = (event) => {
+          if (event.data === "[STREAM CLOSED]") {
+            console.log("[DEBUG] Stream finished cleanly.");
+            currentStream.close();
+            // Reload config table if task was 'create'
+            if (task === "create") {
+              htmx.ajax('GET', '/configs', { target: '#configs', swap: 'innerHTML' });
+            }
+            // Reload cluster table if task was 'delete'
+            if (task === "delete") {
+              htmx.ajax('GET', '/clusters', { target: '#active-clusters', swap: 'innerHTML' });
+            }
+            // Trigger HTMX reload of active cluster table
+            htmx.ajax('GET', '/clusters', { target: '#active-clusters', swap: 'innerHTML' });
+            return;
+          }
+          output.textContent += event.data + "\n";
+      };
+      currentStream.onerror = (err) => {
+        console.warn("[SSE ERROR]", err);
         currentStream.close();
-      }
+      };
+    }
 
-      const url = `/stream?task=${task}&name=${name}`;
+    function startStreamMetallb(name) {
+      if (currentStream) currentStream.close();
       const output = document.querySelector('#live-output code');
-      output.textContent = ""; // clear previous output
-
+      output.textContent = "";
+      const url = `/streammetallb?name=${name}`;
       currentStream = new EventSource(url);
-      console.log("[DEBUG] EventSource opened:", url);
-
       currentStream.onmessage = (event) => {
         if (event.data === "[STREAM CLOSED]") {
           console.log("[DEBUG] Stream finished cleanly.");
@@ -31,46 +60,11 @@
         }
         output.textContent += event.data + "\n";
       };
-
       currentStream.onerror = (err) => {
-        console.error("[SSE ERROR]", err);
+        console.warn("[SSE ERROR]", err);
         currentStream.close();
       };
     }
-
-  function startStreamMetallb(name) {
-    if (window.currentStream) {
-      window.currentStream.close();
-    }
-
-    const output = document.querySelector('#live-output code');
-    output.textContent = "";
-
-    const url = `/streammetallb?name=${name}`;
-    window.currentStream = new EventSource(url);
-    console.log("[DEBUG] MetalLB stream opened:", url);
-
-    window.currentStream.onmessage = (event) => {
-      if (event.data === "[STREAM CLOSED]") {
-        console.log("[DEBUG] Stream finished cleanly.");
-        currentStream.close();
-        return;
-      }
-      output.textContent += event.data + "\n";
-    };
-
-    window.currentStream.onerror = (err) => {
-      console.warn("[SSE ERROR]", err);
-      window.currentStream.close();
-    };
-  }
   </script>
-</head>
-<body>
-  <header>
-    <h1>Kind Cluster Manager</h1>
-    <button class="btn blue" onclick="toggleTheme()">Toggle Theme</button>
-  </header>
-  {% block content %}{% endblock %}
 </body>
 </html>
