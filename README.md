@@ -1,15 +1,16 @@
-# Kurzbeschreibung
+## Kurzbeschreibung
 Dieses Projekt startet einen FastAPI-Server (`main:app`) und nutzt Uvicorn als ASGI-Server. Siehe [`main:app`](main.py) für die App-Instanz und [pyproject.toml](pyproject.toml) für die deklarierte Abhängigkeiten.
 
+## Screenshots
 ![Cluster management](screenshots/kind-clusters.png)
 ![Kind management](screenshots/kind-management.png)
 
-# Voraussetzungen
+## Voraussetzungen
 - Python 3.12 (siehe [.python-version](.python-version))
 - Git
 - Optional: Docker / kind / kubectl (für Cluster-Operationen)
 
-# Virtuelle Umgebung
+## Virtuelle Umgebung
 Empfohlen: lokale venv im Projekt:
 ```bash
 # einmalig
@@ -19,12 +20,12 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-# Abhängigkeiten installieren
+## Abhängigkeiten installieren
 ```bash
 pip install -r requirements.txt
 ```
 
-# Uvicorn (uv) — Entwicklung vs. Produktion ("uv sync")
+## Uvicorn (uv) — Entwicklung vs. Produktion ("uv sync")
 - Entwicklung: Verwenden Sie `--reload`, damit der Server bei Codeänderungen neu startet.
 - Produktion: Entfernen Sie `--reload`. Für mehrere Prozesse/CPU-Kerne nutzen Sie `--workers` oder einen Prozessmanager (z. B. systemd oder Gunicorn mit Uvicorn-Worker).
 Beispiele:
