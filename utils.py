@@ -66,3 +66,27 @@ def get_enriched_clusters() -> list[ClusterConfig]:
         else:
             enriched.append(ClusterConfig(name=name, hostname="unknown", network="", metallbinstalled=False))
     return enriched
+
+def is_metallb_installed(cluster_name: str) -> bool:
+    try:
+        result = subprocess.run(
+            ["kubectl", "--context", f"kind-{cluster_name}", "get", "deployment", "controller", "-n", "metallb-system"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=5
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+def is_istio_installed(cluster_name: str) -> bool:
+    try:
+        result = subprocess.run(
+            ["kubectl", "--context", f"kind-{cluster_name}", "get", "deployment", "istiod", "-n", "istio-system"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=5
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
