@@ -4,28 +4,27 @@
 
 <header style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1em;">
   <h1 style="margin: 0;">
-    <a href="/kind/?theme={{ theme }}" style="text-decoration: none; color: inherit;">Kind Verwaltung</a>
+    <a href="/kind/?theme={{ theme }}" style="text-decoration: none; color: inherit;">Kind binary management</a>
   </h1>
   <nav>
-    <a href="/?theme={{ theme }}" class="btn blue">Zurück zum Dashboard</a>
+    <a href="/?theme={{ theme }}" class="btn blue">Cluster Dashboard</a>
   </nav>
 </header>
 
-
-<p>Aktuell installiert: <strong>{{ current }}</strong></p>
+<p>Current version: <strong>{{ current }}</strong></p>
 
 <form hx-post="/install-kind" hx-target="#kind-output" hx-swap="innerHTML">
-  <label for="version">Installiere Version:</label>
+  <label for="version">Installed Version:</label>
   <select name="version">
     {% for v in available %}
       <option value="{{ v }}">{{ v }}</option>
     {% endfor %}
   </select>
-  <button class="btn green" type="submit">Installieren</button>
+  <button class="btn green" type="submit">Install</button>
 </form>
 
 <button class="btn blue" hx-get="/check-kind-version" hx-target="#kind-output" hx-swap="innerHTML">
-  Version prüfen
+  Version check
 </button>
 
 <div id="kind-output" style="margin-top: 1em;"></div>
