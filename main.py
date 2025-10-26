@@ -3,42 +3,50 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from models import SessionLocal, ClusterConfig, init_db
-from config import METALLB_VERSION
+from config import KIND_BIN
+from kind_routes import router as kind_router
+from plugins_routes import router as plugins_router
 from utils import (
-    get_active_clusters,
     render_config,
-    render_metallb_yaml,
-    get_active_kind_clusters, 
+    get_active_clusters, 
     get_enriched_clusters,
     is_metallb_installed, 
-    is_istio_installed
+    is_istio_installed,
+    is_kind_installed
 )
 import asyncio
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+app.include_router(plugins_router)
+app.include_router(kind_router)
 
 init_db()
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request):
+    theme = request.query_params.get("theme", "dark")
     db = SessionLocal()
     configured = db.query(ClusterConfig).all()
-    active_names = get_active_kind_clusters()
+    active_names = get_active_clusters()
     active = get_enriched_clusters()
+    kind_installed = is_kind_installed()
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "configured": configured,
         "active": active,
-        "active_names": active_names
+        "active_names": active_names,
+        "kind_installed": kind_installed,
+        "kind_path": KIND_BIN,
+        "theme": theme
     })
 
 @app.get("/configs", response_class=HTMLResponse)
 def get_configs(request: Request):
     db = SessionLocal()
     configured = db.query(ClusterConfig).all()
-    active_names = get_active_kind_clusters()
+    active_names = get_active_clusters()
     return templates.TemplateResponse("config_table.html", {
         "request": request,
         "configured": configured,
@@ -48,7 +56,7 @@ def get_configs(request: Request):
 @app.get("/clusters", response_class=HTMLResponse)
 def get_clusters(request: Request):
     db = SessionLocal()
-    active_names = get_active_kind_clusters()
+    active_names = get_active_clusters()
     active = []
 
     for name in active_names:
@@ -72,10 +80,48 @@ def get_clusters(request: Request):
         "active": active
     })
 
+@app.post("/create-config", response_class=HTMLResponse)
+def create_config(request: Request, name: str = Form(...), hostname: str = Form(...), network: str = Form("")):
+    db = SessionLocal()
+    existing = db.query(ClusterConfig).filter_by(name=name).first()
+    configured = db.query(ClusterConfig).all()
+    active_names = get_active_clusters()
+
+    if existing:
+        return templates.TemplateResponse("config_feedback.html", {
+            "request": request,
+            "message": f"Cluster '{name}' already exists.",
+            "configured": configured,
+            "active_names": active_names
+        })
+
+    config = ClusterConfig(name=name, hostname=hostname, network=network, metallbinstalled=False)
+    db.add(config)
+    db.commit()
+
+    # Erfolgreich → nur Tabelle zurückgeben
+    return templates.TemplateResponse("config_table.html", {
+        "request": request,
+        "configured": db.query(ClusterConfig).all(),
+        "active_names": get_active_clusters()
+    })
+
+@app.post("/delete-config", response_class=HTMLResponse)
+def delete_config(request: Request, name: str = Form(...)):
+    db = SessionLocal()
+    db.query(ClusterConfig).filter_by(name=name).delete()
+    db.commit()
+    configured = db.query(ClusterConfig).all()
+    active_names = get_active_clusters()
+    return templates.TemplateResponse("config_table.html", {
+        "request": request,
+        "configured": configured,
+        "active_names": active_names
+    })
 
 @app.post("/refresh-cluster", response_class=HTMLResponse)
 def refresh_cluster(request: Request, name: str = Form(...)):
-    active = get_active_kind_clusters()
+    active = get_active_clusters()
     if name not in active:
         return HTMLResponse(f"<tr><td colspan='3'>Cluster {name} not running</td></tr>")
 
@@ -99,45 +145,6 @@ def refresh_cluster(request: Request, name: str = Form(...)):
     return templates.TemplateResponse("cluster_row.html", {
         "request": request,
         "config": config
-    })
-
-@app.post("/create-config", response_class=HTMLResponse)
-def create_config(request: Request, name: str = Form(...), hostname: str = Form(...), network: str = Form("")):
-    db = SessionLocal()
-    existing = db.query(ClusterConfig).filter_by(name=name).first()
-    configured = db.query(ClusterConfig).all()
-    active_names = get_active_kind_clusters()
-
-    if existing:
-        return templates.TemplateResponse("config_feedback.html", {
-            "request": request,
-            "message": f"Cluster '{name}' already exists.",
-            "configured": configured,
-            "active_names": active_names
-        })
-
-    config = ClusterConfig(name=name, hostname=hostname, network=network, metallbinstalled=False)
-    db.add(config)
-    db.commit()
-
-    # Erfolgreich → nur Tabelle zurückgeben
-    return templates.TemplateResponse("config_table.html", {
-        "request": request,
-        "configured": db.query(ClusterConfig).all(),
-        "active_names": get_active_kind_clusters()
-    })
-
-@app.post("/delete-config", response_class=HTMLResponse)
-def delete_config(request: Request, name: str = Form(...)):
-    db = SessionLocal()
-    db.query(ClusterConfig).filter_by(name=name).delete()
-    db.commit()
-    configured = db.query(ClusterConfig).all()
-    active_names = get_active_kind_clusters()
-    return templates.TemplateResponse("config_table.html", {
-        "request": request,
-        "configured": configured,
-        "active_names": active_names
     })
 
 @app.post("/run-cluster", response_class=HTMLResponse)
@@ -169,9 +176,12 @@ async def stream(task: str, name: str):
     async def event_generator():
         try:
             if task == "run" or task == "create":
-                cmd = ["kind", "create", "cluster", "--name", name, "--config", f"./{name}.conf"]
+                db = SessionLocal()
+                config = db.query(ClusterConfig).filter_by(name=name).first()
+                render_config(config.name, config.hostname)
+                cmd = [KIND_BIN, "create", "cluster", "--name", name, "--config", f"./{name}.conf"]
             elif task == "delete":
-                cmd = ["kind", "delete", "clusters", name]
+                cmd = [KIND_BIN, "delete", "clusters", name]
             else:
                 print(f"[DEBUG] Unknown task: {task}")
                 yield f"data: Unknown task\n\n"
@@ -208,130 +218,5 @@ async def stream(task: str, name: str):
         except Exception as e:
             print(f"[DEBUG] Exception in stream: {e}")
             yield f"data: [EXCEPTION] {str(e)}\n\n"
-
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
-
-@app.post("/install-metallb", response_class=HTMLResponse)
-def install_metallb(name: str = Form(...)):
-    db = SessionLocal()
-    config = db.query(ClusterConfig).filter_by(name=name).first()
-    if not config or not config.network:
-        return HTMLResponse("")
-
-    render_metallb_yaml(config.name, config.network)
-    return HTMLResponse("")  # Button löst nur Stream aus
-
-@app.get("/streammetallb")
-async def stream_metallb(name: str):
-    METALLB_VERSION = "0.15.2"
-    async def event_generator():
-        returncodes = []
-        try:
-            cmds = [
-                ["kubectl", "--context", f"kind-{name}", "apply", "-f", f"https://raw.githubusercontent.com/metallb/metallb/v{METALLB_VERSION}/config/manifests/metallb-native.yaml"],
-                ["kubectl", "--context", f"kind-{name}", "wait", "--for=condition=ready", "pod", "--all", "-n", "metallb-system", "--timeout=300s"],
-                ["kubectl", "--context", f"kind-{name}", "apply", "-f", f"metallb-{name}.yaml"]
-            ]
-
-            for cmd in cmds:
-                yield f"data: Running: {' '.join(cmd)}\n\n"
-                process = await asyncio.create_subprocess_exec(
-                    *cmd,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.STDOUT
-                )
-                
-                while True:
-                    line = await process.stdout.readline()
-                    if not line:
-                        break
-                    decoded = line.decode().rstrip()
-                    print(f"[DEBUG] Output: {decoded}")
-                    yield f"data: {decoded}\n\n"
-                await process.wait()
-                returncodes.append(process.returncode)
-
-                if all(returncode == 0 for returncode in returncodes):
-                    db = SessionLocal()
-                    config = db.query(ClusterConfig).filter_by(name=name).first()
-                    config.metallbinstalled = True
-                    db.commit()
-
-                yield f"data: Done with exit code {process.returncode}\n\n"
-                yield f"data: [STREAM CLOSED]\n\n"
-
-        except Exception as e:
-            yield f"data: [EXCEPTION] {str(e)}\n\n"
-
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
-
-@app.post("/install-istio")
-def install_istio(name: str = Form(...)):
-    return HTMLResponse("")  # Stream übernimmt die Aktion
-
-@app.get("/streamistio")
-async def stream_istio(request: Request, name: str):
-    from config import (
-        ISTIO_SYSTEM_NAMESPACE,
-        MESH_ID,
-        MESH_NETWORK,
-        ISTIO_VERSION
-    )
-
-    async def event_generator():
-        yield f"data: Installing Istio {ISTIO_VERSION} on {name}\n\n"
-
-        commands = [
-            ["helm", "repo", "add", "istio", "https://istio-release.storage.googleapis.com/charts"],
-            ["helm", "repo", "update"],
-            ["bash", "-c", f"kubectl --context kind-{name} get namespace {ISTIO_SYSTEM_NAMESPACE} --ignore-not-found || kubectl --context kind-{name} create namespace {ISTIO_SYSTEM_NAMESPACE}"],
-            ["helm", "install", "istio-base", "istio/base",
-             "-n", ISTIO_SYSTEM_NAMESPACE,
-             "--kube-context", f"kind-{name}",
-             "--version", ISTIO_VERSION,
-             "--wait"],
-            ["helm", "install", "istiod", "istio/istiod",
-             "-n", ISTIO_SYSTEM_NAMESPACE,
-             "--kube-context", f"kind-{name}",
-             "--version", ISTIO_VERSION,
-             "--set", f"global.meshID={MESH_ID}",
-             "--set", f"global.multiCluster.clusterName={name}",
-             "--set", f"global.network={MESH_NETWORK}",
-             "--wait"],
-            ["helm", "install", "istio-ingressgateway", "istio/gateway",
-             "-n", ISTIO_SYSTEM_NAMESPACE,
-             "--kube-context", f"kind-{name}",
-             "--version", ISTIO_VERSION,
-             "--wait"]
-        ]
-
-        success = True
-        for cmd in commands:
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT
-            )
-            async for line in proc.stdout:
-                decoded = line.decode().rstrip()
-                print(f"[DEBUG] Output: {decoded}")
-                yield f"data: {decoded}\n\n"
-            returncode = await proc.wait()
-            if returncode != 0:
-                success = False
-                yield f"data: Command failed: {' '.join(cmd)}\n\n"
-                break
-
-        if success:
-            db = SessionLocal()
-            config = db.query(ClusterConfig).filter_by(name=name).first()
-            if config:
-                config.istioinstalled = True
-                db.commit()
-            yield "data: Istio installation complete.\n\n"
-        else:
-            yield "data: Istio installation aborted due to error.\n\n"
-
-        yield "data: [STREAM CLOSED]\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
