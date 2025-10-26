@@ -1,6 +1,8 @@
 # Kurzbeschreibung
 Dieses Projekt startet einen FastAPI-Server (`main:app`) und nutzt Uvicorn als ASGI-Server. Siehe [`main:app`](main.py) für die App-Instanz und [pyproject.toml](pyproject.toml) für die deklarierte Abhängigkeiten.
 
+![Screenshot](screenshots/screenshot.png)
+
 # Voraussetzungen
 - Python 3.12 (siehe [.python-version](.python-version))
 - Git
