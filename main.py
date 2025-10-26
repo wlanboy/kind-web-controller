@@ -38,7 +38,7 @@ def dashboard(request: Request):
         "active": active,
         "active_names": active_names,
         "kind_installed": kind_installed,
-        "kind_path": KIND_BIN,
+        "kind_path": "~/.local/bin/kind",
         "theme": theme
     })
 
