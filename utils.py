@@ -1,5 +1,6 @@
 import subprocess, os, platform, requests
 from jinja2 import Environment, FileSystemLoader
+from models import SessionLocal, ClusterConfig
 
 def get_active_clusters():
     result = subprocess.run(["kind", "get", "clusters"], capture_output=True, text=True)
@@ -44,3 +45,24 @@ def render_metallb_yaml(name: str, network: str):
     rendered = template.render(network=network)
     with open(f"metallb-{name}.yaml", "w") as f:
         f.write(rendered)
+
+def get_active_kind_clusters() -> list[str]:
+    result = subprocess.run(["kind", "get", "clusters"], capture_output=True, text=True)
+    if result.returncode != 0:
+        return []
+    return result.stdout.strip().splitlines()
+
+def get_enriched_clusters() -> list[ClusterConfig]:
+    active = get_active_kind_clusters()
+    db = SessionLocal()
+    configs = db.query(ClusterConfig).filter(ClusterConfig.name.in_(active)).all()
+    config_map = {c.name: c for c in configs}
+
+    enriched = []
+    for name in active:
+        config = config_map.get(name)
+        if config:
+            enriched.append(config)
+        else:
+            enriched.append(ClusterConfig(name=name, hostname="unknown", network="", metallbinstalled=False))
+    return enriched
