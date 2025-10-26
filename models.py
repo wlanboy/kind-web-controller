@@ -1,9 +1,10 @@
 from sqlalchemy import Column, String, Boolean, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from config import DB_PATH 
 
 Base = declarative_base()
-engine = create_engine("sqlite:///clusters.db")
+engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine)
 
 class ClusterConfig(Base):

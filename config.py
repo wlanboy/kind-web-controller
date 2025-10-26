@@ -1,5 +1,6 @@
 import os
 KIND_BIN = os.path.expanduser("~/.local/bin/kind")
+DB_PATH = os.path.join(os.path.dirname(__file__), "data", "clusters.db")
 METALLB_VERSION = "0.15.2"
 ISTIO_VERSION = "1.27.3"
 ISTIO_SYSTEM_NAMESPACE = "istio-system"
