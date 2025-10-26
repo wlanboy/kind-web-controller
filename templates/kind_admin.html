@@ -14,7 +14,7 @@
 <p>Current version: <strong>{{ current }}</strong></p>
 
 <form hx-post="/install-kind" hx-target="#kind-output" hx-swap="innerHTML">
-  <label for="version">Installed Version:</label>
+  <label for="version">Available Versions:</label>
   <select name="version">
     {% for v in available %}
       <option value="{{ v }}">{{ v }}</option>
