@@ -11,7 +11,7 @@ router = APIRouter()
 
 def get_installed_kind_version() -> str:
     try:
-        result = subprocess.run(["kind", "version"], capture_output=True, text=True, timeout=5)
+        result = subprocess.run([KIND_BIN, "version"], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             match = re.search(r"kind v([\d\.]+)", result.stdout)
             return match.group(1) if match else "unknown"
