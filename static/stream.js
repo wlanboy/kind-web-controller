@@ -50,3 +50,28 @@ function startStreamMetallb(name) {
     currentStream.close();
   };
 }
+
+function startStreamIstio(name) {
+  if (currentStream) currentStream.close();
+  const output = document.querySelector('#live-output code');
+  output.textContent = "";
+  const url = `/streamistio?name=${name}`;
+  currentStream = new EventSource(url);
+
+  currentStream.onmessage = (event) => {
+    if (event.data === "[STREAM CLOSED]") {
+      console.log("[DEBUG] Istio stream finished.");
+      currentStream.close();
+      htmx.ajax('GET', '/configs', { target: '#configs', swap: 'innerHTML' });
+      htmx.ajax('GET', '/clusters', { target: '#active-clusters', swap: 'innerHTML' });
+      return;
+    }
+    output.textContent += event.data + "\n";
+  };
+
+  currentStream.onerror = (err) => {
+    console.warn("[SSE ERROR]", err);
+    currentStream.close();
+  };
+}
+
