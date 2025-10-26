@@ -10,8 +10,9 @@ class ClusterConfig(Base):
     __tablename__ = "cluster_configs"
     name = Column(String, primary_key=True)
     hostname = Column(String)
-    network = Column(String, default=False)  
-    metallbinstalled = Column(Boolean, default=False) 
+    network = Column(String, default="")  
+    metallbinstalled = Column(Boolean, default=False)
+    istioinstalled = Column(Boolean, default=False)
 
 def init_db():
     Base.metadata.create_all(bind=engine)
