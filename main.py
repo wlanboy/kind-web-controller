@@ -9,7 +9,9 @@ from utils import (
     render_config,
     render_metallb_yaml,
     get_active_kind_clusters, 
-    get_enriched_clusters
+    get_enriched_clusters,
+    is_metallb_installed, 
+    is_istio_installed
 )
 import asyncio
 
@@ -45,11 +47,31 @@ def get_configs(request: Request):
 
 @app.get("/clusters", response_class=HTMLResponse)
 def get_clusters(request: Request):
-    active = get_enriched_clusters()
+    db = SessionLocal()
+    active_names = get_active_kind_clusters()
+    active = []
+
+    for name in active_names:
+        config = db.query(ClusterConfig).filter_by(name=name).first()
+        if config:
+            # Prüfe MetalLB
+            metallb = is_metallb_installed(name)
+            if config.metallbinstalled != metallb:
+                config.metallbinstalled = metallb
+
+            # Prüfe Istio
+            istio = is_istio_installed(name)
+            if config.istioinstalled != istio:
+                config.istioinstalled = istio
+
+            db.commit()
+            active.append(config)
+
     return templates.TemplateResponse("cluster_table.html", {
         "request": request,
         "active": active
     })
+
 
 @app.post("/refresh-cluster", response_class=HTMLResponse)
 def refresh_cluster(request: Request, name: str = Form(...)):
@@ -59,6 +81,18 @@ def refresh_cluster(request: Request, name: str = Form(...)):
 
     db = SessionLocal()
     config = db.query(ClusterConfig).filter_by(name=name).first()
+    if config:
+        # Prüfe MetalLB
+        metallb = is_metallb_installed(name)
+        if config.metallbinstalled != metallb:
+            config.metallbinstalled = metallb
+
+        # Prüfe Istio
+        istio = is_istio_installed(name)
+        if config.istioinstalled != istio:
+            config.istioinstalled = istio
+
+        db.commit()
     if not config:
         config = ClusterConfig(name=name, hostname="unknown", network="", metallbinstalled=False)
 
@@ -211,7 +245,9 @@ async def stream_metallb(name: str):
                     line = await process.stdout.readline()
                     if not line:
                         break
-                    yield f"data: {line.decode().rstrip()}\n\n"
+                    decoded = line.decode().rstrip()
+                    print(f"[DEBUG] Output: {decoded}")
+                    yield f"data: {decoded}\n\n"
                 await process.wait()
                 returncodes.append(process.returncode)
 
@@ -226,5 +262,76 @@ async def stream_metallb(name: str):
 
         except Exception as e:
             yield f"data: [EXCEPTION] {str(e)}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+@app.post("/install-istio")
+def install_istio(name: str = Form(...)):
+    return HTMLResponse("")  # Stream übernimmt die Aktion
+
+@app.get("/streamistio")
+async def stream_istio(request: Request, name: str):
+    from config import (
+        ISTIO_SYSTEM_NAMESPACE,
+        MESH_ID,
+        MESH_NETWORK,
+        ISTIO_VERSION
+    )
+
+    async def event_generator():
+        yield f"data: Installing Istio {ISTIO_VERSION} on {name}\n\n"
+
+        commands = [
+            ["helm", "repo", "add", "istio", "https://istio-release.storage.googleapis.com/charts"],
+            ["helm", "repo", "update"],
+            ["bash", "-c", f"kubectl --context kind-{name} get namespace {ISTIO_SYSTEM_NAMESPACE} --ignore-not-found || kubectl --context kind-{name} create namespace {ISTIO_SYSTEM_NAMESPACE}"],
+            ["helm", "install", "istio-base", "istio/base",
+             "-n", ISTIO_SYSTEM_NAMESPACE,
+             "--kube-context", f"kind-{name}",
+             "--version", ISTIO_VERSION,
+             "--wait"],
+            ["helm", "install", "istiod", "istio/istiod",
+             "-n", ISTIO_SYSTEM_NAMESPACE,
+             "--kube-context", f"kind-{name}",
+             "--version", ISTIO_VERSION,
+             "--set", f"global.meshID={MESH_ID}",
+             "--set", f"global.multiCluster.clusterName={name}",
+             "--set", f"global.network={MESH_NETWORK}",
+             "--wait"],
+            ["helm", "install", "istio-ingressgateway", "istio/gateway",
+             "-n", ISTIO_SYSTEM_NAMESPACE,
+             "--kube-context", f"kind-{name}",
+             "--version", ISTIO_VERSION,
+             "--wait"]
+        ]
+
+        success = True
+        for cmd in commands:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT
+            )
+            async for line in proc.stdout:
+                decoded = line.decode().rstrip()
+                print(f"[DEBUG] Output: {decoded}")
+                yield f"data: {decoded}\n\n"
+            returncode = await proc.wait()
+            if returncode != 0:
+                success = False
+                yield f"data: Command failed: {' '.join(cmd)}\n\n"
+                break
+
+        if success:
+            db = SessionLocal()
+            config = db.query(ClusterConfig).filter_by(name=name).first()
+            if config:
+                config.istioinstalled = True
+                db.commit()
+            yield "data: Istio installation complete.\n\n"
+        else:
+            yield "data: Istio installation aborted due to error.\n\n"
+
+        yield "data: [STREAM CLOSED]\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
