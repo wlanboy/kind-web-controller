@@ -1,26 +1,33 @@
-<tr id="cluster-{{ cluster }}">
-  <td>{{ cluster }}</td>
+<tr id="cluster-{{ config.name }}">
+  <td>{{ config.name }}</td>
+  <td>{{ config.hostname }}</td>
   <td>
-<button class="btn red"
-  hx-post="/delete-cluster"
-  hx-vals='{"name":"{{ cluster }}"}'
-  hx-target="#cluster-{{ cluster }}"
-  hx-swap="delete"
-  onclick="startStream('delete', '{{ cluster }}')">
-  Delete
-</button>
-{% if config.metallbinstalled %}
-  <span>MetalLB: {{ config.network }}</span>
-{% else %}
-  <button class="btn blue"
-    hx-post="/install-metallb"
-    hx-vals='{"name":"{{ config.name }}"}'
-    hx-target="this"
-    hx-swap="none"
-    onclick="startStreamMetallb('{{ config.name }}')">
-    Install MetalLB
-  </button>
-{% endif %}
-
+    {% if config.metallbinstalled %}
+      <span>MetalLB: {{ config.network }}</span>
+    {% else %}
+      <button class="btn blue"
+        hx-post="/install-metallb"
+        hx-vals='{"name":"{{ config.name }}"}'
+        hx-target="this"
+        hx-swap="none"
+        onclick="startStreamMetallb('{{ config.name }}')">
+        Install MetalLB
+      </button>
+    {% endif %}
+    <button class="btn refresh"
+      hx-post="/refresh-cluster"
+      hx-vals='{"name":"{{ config.name }}"}'
+      hx-target="#cluster-{{ config.name }}"
+      hx-swap="outerHTML">
+      Refresh
+    </button>
+    <button class="btn red"
+      hx-post="/delete-cluster"
+      hx-vals='{"name":"{{ config.name }}"}'
+      hx-target="#cluster-{{ config.name }}"
+      hx-swap="outerHTML"
+      onclick="startStream('delete', '{{ config.name }}')">
+      Delete
+    </button>
   </td>
 </tr>
