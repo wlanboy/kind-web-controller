@@ -1,6 +1,23 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Cluster Dashboard</h1>
+{% set theme = request.query_params.get('theme', 'dark') %}
+
+<header style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1em;">
+  <h1 style="margin: 0;">
+    <a href="/?theme={{ theme }}" style="text-decoration: none; color: inherit;">Cluster Dashboard</a>
+  </h1>
+  <nav>
+    <a href="/kind?theme={{ theme }}" class="btn blue">Kind Verwaltung</a>
+  </nav>
+</header>
+
+
+{% if kind_installed %}
+  <p style="color: green;">Kind ist installiert unter <code>{{ kind_path }}</code></p>
+{% else %}
+  <p style="color: red;">Kind wurde nicht gefunden unter <code>~/.local/bin/kind</code></p>
+  <a href="/kind?theme={{ request.query_params.get('theme', 'dark') }}" class="btn green">Kind installieren</a>
+{% endif %}
 
 <form hx-post="/create-config" hx-target="#configs" hx-swap="innerHTML">
   <input name="name" placeholder="Name" required>
