@@ -1,0 +1,35 @@
+<table>
+  <thead>
+    <tr><th>Name</th><th>Hostname</th><th>Network</th><th>Actions</th></tr>
+  </thead>
+  <tbody>
+    {% for config in configured %}
+    <tr>
+      <td>{{ config.name }}</td>
+      <td>{{ config.hostname }}</td>
+      <td>{{ config.network }}</td>
+      <td>
+        {% if config.name not in active_names %}
+          <button class="btn green"
+            hx-post="/create-cluster"
+            hx-vals='{"name":"{{ config.name }}"}'
+            hx-target="#cluster-{{ config.name }}"
+            hx-swap="none"
+            onclick="startStream('create', '{{ config.name }}')">
+            Create
+          </button>
+        {% else %}
+          <span>Running</span>
+        {% endif %}
+        <button class="btn red"
+          hx-post="/delete-config"
+          hx-vals='{"name":"{{ config.name }}"}'
+          hx-target="#configs"
+          hx-swap="innerHTML">
+          Delete
+        </button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
